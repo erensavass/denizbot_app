@@ -52,6 +52,7 @@ class _SplashScreenState extends State<SplashScreen>
         .animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
     _fade = Tween(begin: 0.7, end: 1.0)
         .animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
+
     _waveCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1800))
       ..addListener(() => setState(() => _waveT += 0.03))
@@ -103,7 +104,7 @@ class _SplashScreenState extends State<SplashScreen>
           child: CustomPaint(
             painter: _WavePainter(
                 t: _waveT,
-                color: Colors.white.withOpacity(0.10),
+                color: Colors.white.withValues(alpha: 0.10),
                 amp: 14,
                 waveLen: 1.6),
           ),
@@ -140,10 +141,11 @@ class _SplashScreenState extends State<SplashScreen>
                 child: const Text(
                   'KAPTAN CHAT',
                   style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2,
-                      color: Colors.white),
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -172,6 +174,7 @@ class _WavePainter extends CustomPainter {
       ..color = color;
     final path = Path();
     final baseY = size.height * 0.82;
+
     path.moveTo(0, baseY);
     for (double x = 0; x <= size.width; x++) {
       final y =
@@ -192,90 +195,189 @@ class _WavePainter extends CustomPainter {
       oldDelegate.waveLen != waveLen;
 }
 
-/* =============== LOGIN =============== */
-class LoginScreen extends StatelessWidget {
+/* =============== LOGIN (TCKN + Şifre -> Sonra butonlar) =============== */
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final tcknCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
+  bool _loggedIn = false;
+
+  void _simulateLogin() {
+    // Basit ön kontrol: TCKN 11 haneli mi? Şifre boş mu?
+    if (tcknCtrl.text.trim().length != 11) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('TC Kimlik No 11 haneli olmalı.')),
+      );
+      return;
+    }
+    if (passCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lütfen şifre girin.')),
+      );
+      return;
+    }
+    // Gerçek doğrulama yok -> giriş başarılı say
+    setState(() => _loggedIn = true);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final nameCtrl = TextEditingController();
     return Scaffold(
       backgroundColor: const Color(0xFF0055A4),
       body: SafeArea(
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset('assets/images/giris.png', width: 220),
-                const SizedBox(height: 24),
-                const Text('KAPTAN CHAT',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: InputDecoration(
-                    hintText: 'Adınızı girin',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF0055A4),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        elevation: 2,
-                      ),
-                      onPressed: () => Navigator.pushReplacement(
-                        context,
-                        _slideFade(ChatScreen(
-                            userName: nameCtrl.text, startListening: true)),
-                      ),
-                      icon: const Icon(Icons.mic),
-                      label: const Text('Sesli Konuşma'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF0055A4),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        elevation: 2,
-                      ),
-                      onPressed: () => Navigator.pushReplacement(
-                        context,
-                        _slideFade(ChatScreen(
-                            userName: nameCtrl.text, startListening: false)),
-                      ),
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      label: const Text('Yazarak Konuşma'),
-                    ),
-                  ),
-                ]),
-              ],
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: !_loggedIn ? _buildLoginForm() : _buildModeButtons(),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLoginForm() {
+    return Column(
+      key: const ValueKey('loginForm'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset('assets/images/giris.png', width: 220),
+        const SizedBox(height: 24),
+        const Text(
+          'KAPTAN CHAT',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 24),
+        TextField(
+          controller: tcknCtrl,
+          keyboardType: TextInputType.number,
+          maxLength: 11,
+          style: const TextStyle(color: Colors.black87),
+          decoration: InputDecoration(
+            counterText: '',
+            filled: true,
+            fillColor: Colors.white,
+            hintText: 'TC Kimlik No (11 haneli)',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: passCtrl,
+          obscureText: true,
+          textInputAction: TextInputAction.done, // ✅ Enter/Done için
+          onSubmitted: (_) => _simulateLogin(), // klavyeden done basılınca
+          style: const TextStyle(color: Colors.black87),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            hintText: 'Şifre',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF0055A4),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              elevation: 2,
+            ),
+            onPressed: _simulateLogin,
+            child: const Text('Giriş Yap'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModeButtons() {
+    return Column(
+      key: const ValueKey('modeButtons'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.verified_user, color: Colors.white, size: 56),
+        const SizedBox(height: 10),
+        const Text(
+          'Giriş başarılı (simüle)',
+          style: TextStyle(color: Colors.white70),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF0055A4),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 2,
+                ),
+                onPressed: () => Navigator.pushReplacement(
+                  context,
+                  _slideFade(const ChatScreen(
+                    userName: 'Kullanıcı',
+                    startListening: true,
+                  )),
+                ),
+                icon: const Icon(Icons.mic),
+                label: const Text('Sesli Konuşma'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF0055A4),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 2,
+                ),
+                onPressed: () => Navigator.pushReplacement(
+                  context,
+                  _slideFade(const ChatScreen(
+                    userName: 'Kullanıcı',
+                    startListening: false,
+                  )),
+                ),
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('Yazarak Konuşma'),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -295,7 +397,7 @@ class LoginScreen extends StatelessWidget {
       );
 }
 
-/* =============== CHAT (Auto-send Speech) =============== */
+/* =============== CHAT =============== */
 class ChatScreen extends StatefulWidget {
   final String userName;
   final bool startListening;
@@ -335,13 +437,10 @@ class _ChatScreenState extends State<ChatScreen> {
           partialResults: true,
           listenMode: stt.ListenMode.dictation,
           onResult: (r) {
-            // Anlık yazdır
             _controller.text = r.recognizedWords;
             _controller.selection = TextSelection.fromPosition(
               TextPosition(offset: _controller.text.length),
             );
-
-            // Cümle tamamlandıysa otomatik gönder
             if (r.finalResult && _controller.text.trim().isNotEmpty) {
               _send();
             }
@@ -354,12 +453,44 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _endChat() async {
+    final confirm = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Sohbeti sonlandır'),
+            content: const Text('Sohbeti sonlandırmak istediğine emin misin?'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('İptal')),
+              ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Evet')),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirm) return;
+
+    if (_isListening) {
+      await _speech.stop();
+      setState(() => _isListening = false);
+    }
+    _messages.clear();
+
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     setState(() {
       _messages.add(_Msg(text: text, isUser: true));
-      // Mock bot cevabı (backend/AI ekipleri bağlayınca burası değişecek)
       _messages.add(_Msg(text: "Bunu duydum: $text", isUser: false));
     });
     _controller.clear();
@@ -381,18 +512,51 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF0055A4),
-        title: Row(children: [
-          Image.asset('assets/images/dumen.png', width: 36),
-          const SizedBox(width: 8),
-          const Text('Kaptan Chat', style: TextStyle(color: Colors.white)),
-        ]),
-        actions: [
-          IconButton(
-            tooltip: _isListening ? 'Dinlemeyi durdur' : 'Konuşarak yaz',
-            icon: Icon(_isListening ? Icons.mic : Icons.mic_none),
-            onPressed: _toggleListen,
-          )
-        ],
+        toolbarHeight: 64,
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Image.asset(
+                'assets/images/dumen.png',
+                height: 42,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  'KAPTAN HEP YANINIZDA',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: _endChat,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.close, color: Colors.white),
+                    SizedBox(height: 2),
+                    Text(
+                      'Sohbeti\nsonlandır',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       body: Column(children: [
         Expanded(
@@ -459,7 +623,7 @@ class _Msg {
 
 class _Bubble extends StatelessWidget {
   final _Msg msg;
-  const _Bubble({super.key, required this.msg});
+  const _Bubble({required this.msg});
 
   @override
   Widget build(BuildContext context) {
@@ -470,11 +634,14 @@ class _Bubble extends StatelessWidget {
         ? const BorderRadius.only(
             topLeft: Radius.circular(14),
             bottomLeft: Radius.circular(14),
-            topRight: Radius.circular(14))
+            topRight: Radius.circular(14),
+          )
         : const BorderRadius.only(
             topLeft: Radius.circular(14),
             bottomRight: Radius.circular(14),
-            topRight: Radius.circular(14));
+            topRight: Radius.circular(14),
+          );
+
     return Align(
       alignment: align,
       child: Container(
@@ -485,13 +652,16 @@ class _Bubble extends StatelessWidget {
           borderRadius: radius,
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 4,
-                offset: const Offset(0, 2))
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
-        child: Text(msg.text,
-            style: TextStyle(color: fg, fontSize: 15, height: 1.3)),
+        child: Text(
+          msg.text,
+          style: TextStyle(color: fg, fontSize: 15, height: 1.3),
+        ),
       ),
     );
   }
