@@ -103,19 +103,21 @@ class _SplashScreenState extends State<SplashScreen>
         Positioned.fill(
           child: CustomPaint(
             painter: _WavePainter(
-                t: _waveT,
-                color: Colors.white.withValues(alpha: 0.10),
-                amp: 14,
-                waveLen: 1.6),
+              t: _waveT,
+              color: Colors.white.withValues(alpha: 0.10),
+              amp: 14,
+              waveLen: 1.6,
+            ),
           ),
         ),
         Positioned.fill(
           child: CustomPaint(
             painter: _WavePainter(
-                t: _waveT * 0.9 + 2.0,
-                color: Colors.white.withOpacity(0.06),
-                amp: 20,
-                waveLen: 2.2),
+              t: _waveT * 0.9 + 2.0,
+              color: Colors.white.withValues(alpha: 0.06),
+              amp: 20,
+              waveLen: 2.2,
+            ),
           ),
         ),
         Center(
@@ -282,8 +284,8 @@ class _LoginScreenState extends State<LoginScreen> {
         TextField(
           controller: passCtrl,
           obscureText: true,
-          textInputAction: TextInputAction.done, // ✅ Enter/Done için
-          onSubmitted: (_) => _simulateLogin(), // klavyeden done basılınca
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _simulateLogin(),
           style: const TextStyle(color: Colors.black87),
           decoration: InputDecoration(
             filled: true,
@@ -453,36 +455,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _endChat() async {
-    final confirm = await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Sohbeti sonlandır'),
-            content: const Text('Sohbeti sonlandırmak istediğine emin misin?'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('İptal')),
-              ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Evet')),
-            ],
-          ),
-        ) ??
-        false;
-
-    if (!confirm) return;
-
+  Future<void> _goFeedback() async {
+    // Dinleme açıksa kapat
     if (_isListening) {
       await _speech.stop();
       setState(() => _isListening = false);
     }
+    // Mesajları temizlemek istersen (opsiyonel)
     _messages.clear();
 
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
+    // Feedback ekranına git
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const FeedbackScreen()),
     );
   }
 
@@ -540,7 +525,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: InkWell(
-                onTap: _endChat,
+                onTap: _goFeedback, // ❗ Artık feedback ekranına gider
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
@@ -661,6 +646,146 @@ class _Bubble extends StatelessWidget {
         child: Text(
           msg.text,
           style: TextStyle(color: fg, fontSize: 15, height: 1.3),
+        ),
+      ),
+    );
+  }
+}
+
+/* =============== FEEDBACK SCREEN =============== */
+class FeedbackScreen extends StatefulWidget {
+  const FeedbackScreen({super.key});
+
+  @override
+  State<FeedbackScreen> createState() => _FeedbackScreenState();
+}
+
+class _FeedbackScreenState extends State<FeedbackScreen> {
+  int _speed = 0, _accuracy = 0, _satisfaction = 0;
+  String _comment = '';
+
+  bool get _canSend => _speed > 0 && _accuracy > 0 && _satisfaction > 0;
+
+  Widget _buildStars(int value, void Function(int) onTap) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (i) {
+        return IconButton(
+          icon: Icon(
+            i < value ? Icons.star : Icons.star_border,
+            color: Colors.amber,
+          ),
+          onPressed: () => onTap(i + 1),
+        );
+      }),
+    );
+  }
+
+  void _submit() {
+    if (!_canSend) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Lütfen tüm kriterler için en az 1 yıldız seçin.')),
+      );
+      return;
+    }
+
+    // Backend'e gönderim yeri (HTTP vs.)
+    debugPrint(
+        'Hız: $_speed, Doğruluk: $_accuracy, Memnuniyet: $_satisfaction, Yorum: $_comment');
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Değerlendirmeniz kaydedildi!')),
+    );
+
+    // Login ekranına dön (stack'i temizle)
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0055A4),
+        title: const Text('Değerlendirme'),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Text('Hız', style: TextStyle(fontSize: 18)),
+                  const Spacer(),
+                  _buildStars(_speed, (val) => setState(() => _speed = val)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text('Doğruluk', style: TextStyle(fontSize: 18)),
+                  const Spacer(),
+                  _buildStars(
+                      _accuracy, (val) => setState(() => _accuracy = val)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text('Memnuniyet', style: TextStyle(fontSize: 18)),
+                  const Spacer(),
+                  _buildStars(_satisfaction,
+                      (val) => setState(() => _satisfaction = val)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Tüm kriterler için en az bir yıldız seçiniz.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                minLines: 2,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Eklemek İstedikleriniz',
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                onChanged: (val) => setState(() => _comment = val),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0055A4),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _canSend ? _submit : null,
+                  child: const Text('Gönder'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
